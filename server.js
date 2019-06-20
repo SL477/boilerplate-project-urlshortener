@@ -1,10 +1,8 @@
 'use strict';
 
 var express = require('express');
-//var mongoClient = require('mongodb').MongoClient;
-//var mongoose = require('mongoose');
-const mongoose = require('mongoose');
-require('dotenv').config();
+var mongo = require('mongodb');
+var mongoose = require('mongoose');
 
 var cors = require('cors');
 
@@ -13,12 +11,18 @@ var app = express();
 // Basic Configuration 
 var port = process.env.PORT || 3000;
 
+//Need dotenv for testing in windows
+require('dotenv').config();
+
 /** this project needs a db !! **/ 
- mongoose.connect(process.env.MONGOLAB_URI, { useNewUrlParser: true});
- console.log(mongoose.connection.readyState);
- console.log(process.env.MONGOLAB_URI);
- //const client = new mongoClient(process.env.MONGOLAB_URI, { useNewUrlParser: true});
- //client.connect();
+ mongoose.connect(process.env.MONGOLAB_URI, {useNewUrlParser: true}, function (err) {
+   if (err) {
+     console.log(err);
+   } else {
+     console.log("Connected");
+   }
+ });
+ var db = mongoose.connection;
 
 app.use(cors());
 
@@ -26,6 +30,7 @@ app.use(cors());
 // you should mount the body-parser here
 var bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({extended: false}));
+
 app.use('/public', express.static(process.cwd() + '/public'));
 
 app.get('/', function(req, res){
@@ -43,19 +48,18 @@ var dns = require('dns');
 
 //schema
 //var Schema = mongoose.Schema;
-mongoose.Promise = global.Promise;
 var UrlRecordSchema = new mongoose.Schema({
   urlstr: { type: String, required: true }
 });
 var URLRecord = mongoose.model('URLRecord', UrlRecordSchema);
 
-//post urls
+//Post URLS
 app.post("/api/shorturl/new", function (req, res) {
   console.log(req.body.url);
 
   //check the url
   //need to take off the http(s):// part so that the dns lookup will work
-  if (req.body.url.indexOf("://") == -1){
+  if (req.body.url.indexOf("://") == -1) {
     res.json({"error": "invalid URL"});
   } else {
     var smallUrl =  req.body.url.substring(req.body.url.indexOf("://") + 3);
@@ -63,42 +67,38 @@ app.post("/api/shorturl/new", function (req, res) {
     dns.lookup(smallUrl, function (err, address, family) {
       if (err) {
         res.json({"error": "invalid URL"});
-        console.log(address);
       } else {
         //Log to MongoDB
-       /* var u1 = new URLRecord({urlstr: req.body.url});
-        u1.save(function (err, data) {
-          if (err){
-            console.log(err);
-          } else {
-            //return the submitted url
-            res.json({"original_url": req.body.url, "short_url": data});
-          }
-        });*/
-        /*var u1 = new URLRecord({urlstr: req.body.url});
-        u1.save(function (err) {
-          console.log("Save was called");
-          if (err){
-            console.log(err);
-          //} else {
-            //console.log(data);
-            //res.json({"original_url": req.body.url});
-          }
-        });*/
-        console.log("before save");
-        
+        //var ul = new URLRecord({urlstr: req.body.url});
         URLRecord.create({urlstr: req.body.url}, function (err, data) {
-          console.log("create called");
           if (err) {
             console.log(err);
           } else {
-            console.log(data);
+            res.json({"original_url": req.body.url, "short_url": data._id});
           }
         });
-        res.json({"original_url": req.body.url});
       }
     });
   }
+
+});
+
+//Browse to the short url
+app.get("/api/shorturl/:id", function (req, res) {
+  //Lookup the id
+  URLRecord.findById(req.params.id).exec(function (err, u1) {
+    if (err) {
+      console.log(err);
+      res.json({"error": "Wrong Format"});
+    } else {
+      //res.redirect(u1);
+      console.log("redirecturl");
+      console.log(u1.urlstr);
+      res.writeHead(301, {Location: u1.urlstr});
+      //res.writeHead(301, {Location: "https://google.com"});
+      res.end();
+    }
+  });
 });
 
 app.listen(port, function () {
