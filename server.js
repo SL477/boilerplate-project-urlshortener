@@ -1,7 +1,7 @@
 'use strict';
 
 var express = require('express');
-var mongo = require('mongodb');
+// var mongo = require('mongodb');
 var mongoose = require('mongoose');
 
 var cors = require('cors');
@@ -15,14 +15,17 @@ var port = process.env.PORT || 3000;
 require('dotenv').config();
 
 /** this project needs a db !! **/ 
- mongoose.connect(process.env.MONGOLAB_URI, {useNewUrlParser: true}, function (err) {
-   if (err) {
-     console.log(err);
-   } else {
-     console.log("Connected");
-   }
- });
- var db = mongoose.connection;
+//  mongoose.connect(process.env.MONGOLAB_URI, {useNewUrlParser: true}, function (err) {
+//    if (err) {
+//      console.log(err);
+//    } else {
+//      console.log("Connected");
+//    }
+//  });
+mongoose.connect(process.env.MONGOLAB_URI, { useNewUrlParser: true}).then(console.log("Connected")).catch(ex => console.error(ex))
+
+//  var db = mongoose.connection;
+
 
 app.use(cors());
 
@@ -64,19 +67,20 @@ app.post("/api/shorturl/new", function (req, res) {
   } else {
     var smallUrl =  req.body.url.substring(req.body.url.indexOf("://") + 3);
     console.log(smallUrl);
-    dns.lookup(smallUrl, function (err, address, family) {
+    dns.lookup(smallUrl, function (err) {
       if (err) {
         res.json({"error": "invalid URL"});
       } else {
         //Log to MongoDB
         //var ul = new URLRecord({urlstr: req.body.url});
-        URLRecord.create({urlstr: req.body.url}, function (err, data) {
-          if (err) {
-            console.log(err);
-          } else {
-            res.json({"original_url": req.body.url, "short_url": data._id});
-          }
-        });
+        // URLRecord.create({urlstr: req.body.url}, function (err, data) {
+        //   if (err) {
+        //     console.log(err);
+        //   } else {
+        //     res.json({"original_url": req.body.url, "short_url": data._id});
+        //   }
+        // });
+        URLRecord.create({urlstr: req.body.url}).then(data => res.json({"original_url": req.body.url, "short_url": data._id})).catch(err => console.error(err));
       }
     });
   }
